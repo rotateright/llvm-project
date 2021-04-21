@@ -1189,6 +1189,10 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
     PM.add(createWholeProgramDevirtPass(ExportSummary, nullptr));
   }
 
+  // LICM should always be run after the final InstCombine because InstCombine
+  // sinks instructions without regard to loop-invariance.
+  PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+
   // Create a function that performs CFI checks for cross-DSO calls with targets
   // in the current module.
   PM.add(createCrossDSOCFIPass());

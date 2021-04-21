@@ -133,6 +133,11 @@
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass on foo
+; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run.
+; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
+; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
+; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run.
+; CHECK-O23SZ-NEXT: Running pass: LICMPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: CrossDSOCFIPass
 ; CHECK-O23SZ-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O-NEXT: Running pass: LowerTypeTestsPass
