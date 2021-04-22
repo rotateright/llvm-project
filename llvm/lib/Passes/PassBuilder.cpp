@@ -1811,12 +1811,17 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.addPass(LoopDistributePass());
   MainFPM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
-
+  // The vectorizer may have significantly shortened a loop body; unroll again.
+  MainFPM.addPass(LoopUnrollPass(LoopUnrollOptions(
+      Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
+      PTO.ForgetAllSCEVInLoopUnroll)));
   MainFPM.addPass(WarnMissedTransformationsPass());
-  MainFPM.addPass(LoopLoadEliminationPass());
 
   MainFPM.addPass(InstCombinePass());
   MainFPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
+  MainFPM.addPass(SCCPPass());
+  MainFPM.addPass(InstCombinePass());
+  MainFPM.addPass(BDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
   if (PTO.SLPVectorization) {
@@ -1837,16 +1842,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   MainFPM.addPass(InstCombinePass());
 
-  // The vectorizers may have significantly shortened a loop body; unroll again.
-  MainFPM.addPass(LoopUnrollPass(LoopUnrollOptions(
-      Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
-      PTO.ForgetAllSCEVInLoopUnroll)));
-
-  // Clean up after unrolling.
-  MainFPM.addPass(InstCombinePass());
-
   invokePeepholeEPCallbacks(MainFPM, Level);
-
+  MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
 
   // Create a function that performs CFI checks for cross-DSO calls with
