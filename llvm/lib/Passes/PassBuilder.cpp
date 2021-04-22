@@ -1847,11 +1847,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   invokePeepholeEPCallbacks(MainFPM, Level);
 
-  // LICM should always be run after the final InstCombine because InstCombine
-  // sinks instructions without regard to loop-invariance.
-  MainFPM.addPass(createFunctionToLoopPassAdaptor(
-      LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap),
-      EnableMSSALoopDependency, /*UseBlockFrequencyInfo=*/true, DebugLogging));
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
 
   // Create a function that performs CFI checks for cross-DSO calls with
