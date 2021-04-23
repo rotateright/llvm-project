@@ -1186,6 +1186,70 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   return MPM;
 }
 
+void PassBuilder::addVectorPasses(OptimizationLevel Level,
+                                  FunctionPassManager &FPM) {
+  FPM.addPass(LoopVectorizePass(
+      LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
+
+  // Eliminate loads by forwarding stores from the previous iteration to loads
+  // of the current iteration.
+  FPM.addPass(LoopLoadEliminationPass());
+
+  // Cleanup after the loop optimization passes.
+  FPM.addPass(InstCombinePass());
+
+  if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
+    // At higher optimization levels, try to clean up any runtime overlap and
+    // alignment checks inserted by the vectorizer. We want to track correlated
+    // runtime checks for two inner loops in the same outer loop, fold any
+    // common computations, hoist loop-invariant aspects out of any outer loop,
+    // and unswitch the runtime checks if possible. Once hoisted, we may have
+    // dead (or speculatable) control flows or more combining opportunities.
+    FPM.addPass(EarlyCSEPass());
+    FPM.addPass(CorrelatedValuePropagationPass());
+    FPM.addPass(InstCombinePass());
+    LoopPassManager LPM(DebugLogging);
+    LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
+    LPM.addPass(
+        SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3));
+    FPM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
+    FPM.addPass(createFunctionToLoopPassAdaptor(
+        std::move(LPM), EnableMSSALoopDependency, /*UseBlockFrequencyInfo=*/true,
+        DebugLogging));
+    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(InstCombinePass());
+  }
+
+  // Now that we've formed fast-to-execute loop structures, we do further
+  // optimizations. These are run afterward as they might block doing complex
+  // analyses and transforms such as what are needed for loop vectorization.
+
+  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
+  // GVN, loop transforms, and others have already run, so it's now better to
+  // convert to more optimized IR using more aggressive simplify CFG options.
+  // The extra sinking transform can create larger basic blocks, so do this
+  // before SLP vectorization.
+  // FIXME: study whether hoisting and/or sinking of common instructions should
+  //        be delayed until after SLP vectorizer.
+  FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
+                                         .forwardSwitchCondToPhi(true)
+                                         .convertSwitchToLookupTable(true)
+                                         .needCanonicalLoops(false)
+                                         .hoistCommonInsts(true)
+                                         .sinkCommonInsts(true)));
+
+  // Optimize parallel scalar instruction chains into SIMD instructions.
+  if (PTO.SLPVectorization) {
+    FPM.addPass(SLPVectorizerPass());
+    if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses)
+      FPM.addPass(EarlyCSEPass());
+  }
+
+  // Enhance/cleanup vector code.
+  FPM.addPass(VectorCombinePass());
+  FPM.addPass(InstCombinePass());
+}
+
 ModulePassManager
 PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                                              bool LTOPreLink) {
@@ -1280,68 +1344,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // from the TargetLibraryInfo.
   OptimizePM.addPass(InjectTLIMappings());
 
-  // Now run the core loop vectorizer.
-  OptimizePM.addPass(LoopVectorizePass(
-      LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
-
-  // Eliminate loads by forwarding stores from the previous iteration to loads
-  // of the current iteration.
-  OptimizePM.addPass(LoopLoadEliminationPass());
-
-  // Cleanup after the loop optimization passes.
-  OptimizePM.addPass(InstCombinePass());
-
-  if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
-    // At higher optimization levels, try to clean up any runtime overlap and
-    // alignment checks inserted by the vectorizer. We want to track correlated
-    // runtime checks for two inner loops in the same outer loop, fold any
-    // common computations, hoist loop-invariant aspects out of any outer loop,
-    // and unswitch the runtime checks if possible. Once hoisted, we may have
-    // dead (or speculatable) control flows or more combining opportunities.
-    OptimizePM.addPass(EarlyCSEPass());
-    OptimizePM.addPass(CorrelatedValuePropagationPass());
-    OptimizePM.addPass(InstCombinePass());
-    LoopPassManager LPM(DebugLogging);
-    LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
-    LPM.addPass(
-        SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3));
-    OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-    OptimizePM.addPass(createFunctionToLoopPassAdaptor(
-        std::move(LPM), EnableMSSALoopDependency, /*UseBlockFrequencyInfo=*/true,
-        DebugLogging));
-    OptimizePM.addPass(SimplifyCFGPass());
-    OptimizePM.addPass(InstCombinePass());
-  }
-
-  // Now that we've formed fast to execute loop structures, we do further
-  // optimizations. These are run afterward as they might block doing complex
-  // analyses and transforms such as what are needed for loop vectorization.
-
-  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
-  // GVN, loop transforms, and others have already run, so it's now better to
-  // convert to more optimized IR using more aggressive simplify CFG options.
-  // The extra sinking transform can create larger basic blocks, so do this
-  // before SLP vectorization.
-  // FIXME: study whether hoisting and/or sinking of common instructions should
-  //        be delayed until after SLP vectorizer.
-  OptimizePM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
-                                         .forwardSwitchCondToPhi(true)
-                                         .convertSwitchToLookupTable(true)
-                                         .needCanonicalLoops(false)
-                                         .hoistCommonInsts(true)
-                                         .sinkCommonInsts(true)));
-
-  // Optimize parallel scalar instruction chains into SIMD instructions.
-  if (PTO.SLPVectorization) {
-    OptimizePM.addPass(SLPVectorizerPass());
-    if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
-      OptimizePM.addPass(EarlyCSEPass());
-    }
-  }
-
-  // Enhance/cleanup vector code.
-  OptimizePM.addPass(VectorCombinePass());
-  OptimizePM.addPass(InstCombinePass());
+  addVectorPasses(Level, OptimizePM);
 
   // Unroll small loops to hide loop backedge latency and saturate any parallel
   // execution resources of an out-of-order processor. We also then need to
@@ -1356,8 +1359,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(LoopUnrollPass(LoopUnrollOptions(
       Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
       PTO.ForgetAllSCEVInLoopUnroll)));
+
   OptimizePM.addPass(WarnMissedTransformationsPass());
   OptimizePM.addPass(InstCombinePass());
+
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap),
@@ -1809,39 +1814,17 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       DebugLogging));
 
   MainFPM.addPass(LoopDistributePass());
-  MainFPM.addPass(LoopVectorizePass(
-      LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
+
+  addVectorPasses(Level, MainFPM);
+
   // The vectorizer may have significantly shortened a loop body; unroll again.
   MainFPM.addPass(LoopUnrollPass(LoopUnrollOptions(
       Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
       PTO.ForgetAllSCEVInLoopUnroll)));
 
   MainFPM.addPass(WarnMissedTransformationsPass());
-
   MainFPM.addPass(InstCombinePass());
-  MainFPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
-  MainFPM.addPass(SCCPPass());
-  MainFPM.addPass(InstCombinePass());
-  MainFPM.addPass(BDCEPass());
 
-  // More scalar chains could be vectorized due to more alias information
-  if (PTO.SLPVectorization) {
-    MainFPM.addPass(SLPVectorizerPass());
-    if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
-      MainFPM.addPass(EarlyCSEPass());
-    }
-  }
-
-  MainFPM.addPass(VectorCombinePass()); // Clean up partial vectorization.
-
-  // After vectorization, assume intrinsics may tell us more about pointer
-  // alignments.
-  MainFPM.addPass(AlignmentFromAssumptionsPass());
-
-  // FIXME: Conditionally run LoadCombine here, after it's ported
-  // (in case we still have this pass, given its questionable usefulness).
-
-  MainFPM.addPass(InstCombinePass());
   invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
