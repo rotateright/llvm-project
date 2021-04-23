@@ -145,20 +145,21 @@
 ; CHECK-NEXT:       Inject TLI Mappings
 ; CHECK-NEXT:       Loop Vectorization
 ; CHECK-NEXT:       Canonicalize natural loops
-; CHECK-NEXT:       LCSSA Verifier
-; CHECK-NEXT:       Loop-Closed SSA Form Pass
-; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Scalar Evolution Analysis
-; CHECK-NEXT:       Loop Pass Manager
-; CHECK-NEXT:         Unroll loops
+; CHECK-NEXT:       Function Alias Analysis Results
+; CHECK-NEXT:       Loop Access Analysis
+; CHECK-NEXT:       Lazy Branch Probability Analysis
+; CHECK-NEXT:       Lazy Block Frequency Analysis
+; CHECK-NEXT:       Loop Load Elimination
+; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Lazy Branch Probability Analysis
 ; CHECK-NEXT:       Lazy Block Frequency Analysis
 ; CHECK-NEXT:       Optimization Remark Emitter
-; CHECK-NEXT:       Warn about non-applied transformations
 ; CHECK-NEXT:       Combine redundant instructions
 ; CHECK-NEXT:       Simplify the CFG
-; CHECK-NEXT:       Sparse Conditional Constant Propagation
 ; CHECK-NEXT:       Dominator Tree Construction
+; CHECK-NEXT:       Optimize scalar/vector ops
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Natural Loop Information
@@ -166,12 +167,17 @@
 ; CHECK-NEXT:       Lazy Block Frequency Analysis
 ; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Combine redundant instructions
-; CHECK-NEXT:       Demanded bits analysis
-; CHECK-NEXT:       Bit-Tracking Dead Code Elimination
-; CHECK-NEXT:       Optimize scalar/vector ops
+; CHECK-NEXT:       Canonicalize natural loops
+; CHECK-NEXT:       LCSSA Verifier
+; CHECK-NEXT:       Loop-Closed SSA Form Pass
 ; CHECK-NEXT:       Scalar Evolution Analysis
+; CHECK-NEXT:       Loop Pass Manager
+; CHECK-NEXT:         Unroll loops
+; CHECK-NEXT:       Lazy Branch Probability Analysis
+; CHECK-NEXT:       Lazy Block Frequency Analysis
+; CHECK-NEXT:       Optimization Remark Emitter
+; CHECK-NEXT:       Warn about non-applied transformations
 ; CHECK-NEXT:       Alignment from assumptions
-; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Combine redundant instructions
 ; CHECK-NEXT:       Lazy Value Information Analysis
