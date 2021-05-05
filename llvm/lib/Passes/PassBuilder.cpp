@@ -1240,6 +1240,34 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(SimplifyCFGPass());
     FPM.addPass(InstCombinePass());
   }
+
+  // Now that we've formed fast to execute loop structures, we do further
+  // optimizations. These are run afterward as they might block doing complex
+  // analyses and transforms such as what are needed for loop vectorization.
+
+  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
+  // GVN, loop transforms, and others have already run, so it's now better to
+  // convert to more optimized IR using more aggressive simplify CFG options.
+  // The extra sinking transform can create larger basic blocks, so do this
+  // before SLP vectorization.
+  FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
+                                         .forwardSwitchCondToPhi(true)
+                                         .convertSwitchToLookupTable(true)
+                                         .needCanonicalLoops(false)
+                                         .hoistCommonInsts(true)
+                                         .sinkCommonInsts(true)));
+
+  // Optimize parallel scalar instruction chains into SIMD instructions.
+  if (PTO.SLPVectorization) {
+    FPM.addPass(SLPVectorizerPass());
+    if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
+      FPM.addPass(EarlyCSEPass());
+    }
+  }
+
+  // Enhance/cleanup vector code.
+  FPM.addPass(VectorCombinePass());
+  FPM.addPass(InstCombinePass());
 }
 
 ModulePassManager
@@ -1337,34 +1365,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(InjectTLIMappings());
 
   addVectorPasses(Level, OptimizePM);
-
-  // Now that we've formed fast to execute loop structures, we do further
-  // optimizations. These are run afterward as they might block doing complex
-  // analyses and transforms such as what are needed for loop vectorization.
-
-  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
-  // GVN, loop transforms, and others have already run, so it's now better to
-  // convert to more optimized IR using more aggressive simplify CFG options.
-  // The extra sinking transform can create larger basic blocks, so do this
-  // before SLP vectorization.
-  OptimizePM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
-                                         .forwardSwitchCondToPhi(true)
-                                         .convertSwitchToLookupTable(true)
-                                         .needCanonicalLoops(false)
-                                         .hoistCommonInsts(true)
-                                         .sinkCommonInsts(true)));
-
-  // Optimize parallel scalar instruction chains into SIMD instructions.
-  if (PTO.SLPVectorization) {
-    OptimizePM.addPass(SLPVectorizerPass());
-    if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
-      OptimizePM.addPass(EarlyCSEPass());
-    }
-  }
-
-  // Enhance/cleanup vector code.
-  OptimizePM.addPass(VectorCombinePass());
-  OptimizePM.addPass(InstCombinePass());
 
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
@@ -1823,30 +1823,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.addPass(LoopDistributePass());
 
   addVectorPasses(Level, MainFPM);
-
-  MainFPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
-  MainFPM.addPass(SCCPPass());
-  MainFPM.addPass(InstCombinePass());
-  MainFPM.addPass(BDCEPass());
-
-  // More scalar chains could be vectorized due to more alias information
-  if (PTO.SLPVectorization) {
-    MainFPM.addPass(SLPVectorizerPass());
-    if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
-      MainFPM.addPass(EarlyCSEPass());
-    }
-  }
-
-  MainFPM.addPass(VectorCombinePass()); // Clean up partial vectorization.
-
-  // After vectorization, assume intrinsics may tell us more about pointer
-  // alignments.
-  MainFPM.addPass(AlignmentFromAssumptionsPass());
-
-  // FIXME: Conditionally run LoadCombine here, after it's ported
-  // (in case we still have this pass, given its questionable usefulness).
-
-  MainFPM.addPass(InstCombinePass());
 
   invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
