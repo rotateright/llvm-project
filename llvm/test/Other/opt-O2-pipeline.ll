@@ -228,11 +228,17 @@
 ; CHECK-NEXT:       Inject TLI Mappings
 ; CHECK-NEXT:       Loop Vectorization
 ; CHECK-NEXT:       Canonicalize natural loops
-; CHECK-NEXT:       Scalar Evolution Analysis
+; CHECK-NEXT:       LCSSA Verifier
+; CHECK-NEXT:       Loop-Closed SSA Form Pass
 ; CHECK-NEXT:       Function Alias Analysis Results
-; CHECK-NEXT:       Loop Access Analysis
+; CHECK-NEXT:       Scalar Evolution Analysis
+; CHECK-NEXT:       Loop Pass Manager
+; CHECK-NEXT:         Unroll loops
 ; CHECK-NEXT:       Lazy Branch Probability Analysis
 ; CHECK-NEXT:       Lazy Block Frequency Analysis
+; CHECK-NEXT:       Optimization Remark Emitter
+; CHECK-NEXT:       Warn about non-applied transformations
+; CHECK-NEXT:       Loop Access Analysis
 ; CHECK-NEXT:       Loop Load Elimination
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Function Alias Analysis Results
@@ -253,16 +259,6 @@
 ; CHECK-NEXT:       Inject TLI Mappings
 ; CHECK-NEXT:       SLP Vectorizer
 ; CHECK-NEXT:       Optimize scalar/vector ops
-; CHECK-NEXT:       Optimization Remark Emitter
-; CHECK-NEXT:       Combine redundant instructions
-; CHECK-NEXT:       Canonicalize natural loops
-; CHECK-NEXT:       LCSSA Verifier
-; CHECK-NEXT:       Loop-Closed SSA Form Pass
-; CHECK-NEXT:       Scalar Evolution Analysis
-; CHECK-NEXT:       Loop Pass Manager
-; CHECK-NEXT:         Unroll loops
-; CHECK-NEXT:       Lazy Branch Probability Analysis
-; CHECK-NEXT:       Lazy Block Frequency Analysis
 ; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Combine redundant instructions
 ; CHECK-NEXT:       Memory SSA

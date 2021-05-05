@@ -88,12 +88,11 @@
 ; CHECK-O2-NEXT: Rotate Loops
 ; CHECK-O2-NOT: Manager
 ; CHECK-O2: Loop Vectorization
-; CHECK-O2-NOT: Manager
-; CHECK-O2: SLP Vectorizer
-; CHECK-O2-NOT: Manager
-; After vectorization we do partial unrolling.
+; After loop vectorization we do partial unrolling.
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2-NEXT: Unroll loops
+; CHECK-O2-NOT: Manager
+; CHECK-O2: SLP Vectorizer
 ; CHECK-O2-NOT: Manager
 ; After vectorization and unrolling we try to do any cleanup of inserted code,
 ; including a run of LICM. This shouldn't run in the same loop pass manager as

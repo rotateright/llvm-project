@@ -155,23 +155,22 @@
 ; CHECK-NEXT:       Lazy Block Frequency Analysis
 ; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Warn about non-applied transformations
+; CHECK-NEXT:       Loop Access Analysis
+; CHECK-NEXT:       Loop Load Elimination
+; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+; CHECK-NEXT:       Function Alias Analysis Results
+; CHECK-NEXT:       Lazy Branch Probability Analysis
+; CHECK-NEXT:       Lazy Block Frequency Analysis
+; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Combine redundant instructions
 ; CHECK-NEXT:       Simplify the CFG
-; CHECK-NEXT:       Sparse Conditional Constant Propagation
 ; CHECK-NEXT:       Dominator Tree Construction
+; CHECK-NEXT:       Optimize scalar/vector ops
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Natural Loop Information
 ; CHECK-NEXT:       Lazy Branch Probability Analysis
 ; CHECK-NEXT:       Lazy Block Frequency Analysis
-; CHECK-NEXT:       Optimization Remark Emitter
-; CHECK-NEXT:       Combine redundant instructions
-; CHECK-NEXT:       Demanded bits analysis
-; CHECK-NEXT:       Bit-Tracking Dead Code Elimination
-; CHECK-NEXT:       Optimize scalar/vector ops
-; CHECK-NEXT:       Scalar Evolution Analysis
-; CHECK-NEXT:       Alignment from assumptions
-; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Combine redundant instructions
 ; CHECK-NEXT:       Lazy Value Information Analysis
