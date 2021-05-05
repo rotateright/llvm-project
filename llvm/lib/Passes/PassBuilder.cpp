@@ -1195,6 +1195,23 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   FPM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
 
+  // The vectorizer may have significantly shortened a loop body; unroll again.
+  // Unroll small loops to hide loop backedge latency and saturate any parallel
+  // execution resources of an out-of-order processor. We also then need to
+  // clean up redundancies and loop invariant code.
+  // FIXME: It would be really good to use a loop-integrated instruction
+  // combiner for cleanup here so that the unrolling and LICM can be pipelined
+  // across the loop nests.
+  // We do UnrollAndJam in a separate LPM to ensure it happens before unroll
+  if (EnableUnrollAndJam && PTO.LoopUnrolling)
+    FPM.addPass(LoopUnrollAndJamPass(Level.getSpeedupLevel()));
+
+  FPM.addPass(LoopUnrollPass(LoopUnrollOptions(
+      Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
+      PTO.ForgetAllSCEVInLoopUnroll)));
+
+  FPM.addPass(WarnMissedTransformationsPass());
+
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   FPM.addPass(LoopLoadEliminationPass());
@@ -1349,21 +1366,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(VectorCombinePass());
   OptimizePM.addPass(InstCombinePass());
 
-  // Unroll small loops to hide loop backedge latency and saturate any parallel
-  // execution resources of an out-of-order processor. We also then need to
-  // clean up redundancies and loop invariant code.
-  // FIXME: It would be really good to use a loop-integrated instruction
-  // combiner for cleanup here so that the unrolling and LICM can be pipelined
-  // across the loop nests.
-  // We do UnrollAndJam in a separate LPM to ensure it happens before unroll
-  if (EnableUnrollAndJam && PTO.LoopUnrolling) {
-    OptimizePM.addPass(LoopUnrollAndJamPass(Level.getSpeedupLevel()));
-  }
-  OptimizePM.addPass(LoopUnrollPass(LoopUnrollOptions(
-      Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
-      PTO.ForgetAllSCEVInLoopUnroll)));
-  OptimizePM.addPass(WarnMissedTransformationsPass());
-  OptimizePM.addPass(InstCombinePass());
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap),
@@ -1843,15 +1845,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // FIXME: Conditionally run LoadCombine here, after it's ported
   // (in case we still have this pass, given its questionable usefulness).
-
-  MainFPM.addPass(InstCombinePass());
-
-  // The vectorizer may have significantly shortened a loop body; unroll again.
-  MainFPM.addPass(LoopUnrollPass(LoopUnrollOptions(
-      Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
-      PTO.ForgetAllSCEVInLoopUnroll)));
-
-  MainFPM.addPass(WarnMissedTransformationsPass());
 
   MainFPM.addPass(InstCombinePass());
 

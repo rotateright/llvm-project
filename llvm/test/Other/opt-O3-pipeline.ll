@@ -468,14 +468,13 @@
 ; NEWPM-NEXT:     LoopVectorizePass on f
 ; NEWPM-NEXT:       BlockFrequencyAnalysis analysis on f
 ; NEWPM-NEXT:         BranchProbabilityAnalysis analysis on f
+; NEWPM-NEXT:     LoopUnrollPass on f
+; NEWPM-NEXT:     WarnMissedTransformationsPass on f
 ; NEWPM-NEXT:     LoopLoadEliminationPass on f
 ; NEWPM-NEXT:     InstCombinePass on f
 ; NEWPM-NEXT:     SimplifyCFGPass on f
 ; NEWPM-NEXT:     SLPVectorizerPass on f
 ; NEWPM-NEXT:     VectorCombinePass on f
-; NEWPM-NEXT:     InstCombinePass on f
-; NEWPM-NEXT:     LoopUnrollPass on f
-; NEWPM-NEXT:     WarnMissedTransformationsPass on f
 ; NEWPM-NEXT:     InstCombinePass on f
 ; NEWPM-NEXT:     RequireAnalysisPass<{{.*}}> on f
 ; NEWPM-NEXT:     FunctionToLoopPassAdaptor on f
