@@ -1190,6 +1190,40 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   return MPM;
 }
+void PassBuilder::addVectorPasses(OptimizationLevel Level,
+                                  FunctionPassManager &FPM) {
+  FPM.addPass(LoopVectorizePass(
+      LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
+
+  // Eliminate loads by forwarding stores from the previous iteration to loads
+  // of the current iteration.
+  FPM.addPass(LoopLoadEliminationPass());
+
+  // Cleanup after the loop optimization passes.
+  FPM.addPass(InstCombinePass());
+
+  if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
+    // At higher optimization levels, try to clean up any runtime overlap and
+    // alignment checks inserted by the vectorizer. We want to track correlated
+    // runtime checks for two inner loops in the same outer loop, fold any
+    // common computations, hoist loop-invariant aspects out of any outer loop,
+    // and unswitch the runtime checks if possible. Once hoisted, we may have
+    // dead (or speculatable) control flows or more combining opportunities.
+    FPM.addPass(EarlyCSEPass());
+    FPM.addPass(CorrelatedValuePropagationPass());
+    FPM.addPass(InstCombinePass());
+    LoopPassManager LPM(DebugLogging);
+    LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
+    LPM.addPass(
+        SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3));
+    FPM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
+    FPM.addPass(createFunctionToLoopPassAdaptor(
+        std::move(LPM), EnableMSSALoopDependency, /*UseBlockFrequencyInfo=*/true,
+        DebugLogging));
+    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(InstCombinePass());
+  }
+}
 
 ModulePassManager
 PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
@@ -1285,38 +1319,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // from the TargetLibraryInfo.
   OptimizePM.addPass(InjectTLIMappings());
 
-  // Now run the core loop vectorizer.
-  OptimizePM.addPass(LoopVectorizePass(
-      LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
-
-  // Eliminate loads by forwarding stores from the previous iteration to loads
-  // of the current iteration.
-  OptimizePM.addPass(LoopLoadEliminationPass());
-
-  // Cleanup after the loop optimization passes.
-  OptimizePM.addPass(InstCombinePass());
-
-  if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
-    // At higher optimization levels, try to clean up any runtime overlap and
-    // alignment checks inserted by the vectorizer. We want to track correlated
-    // runtime checks for two inner loops in the same outer loop, fold any
-    // common computations, hoist loop-invariant aspects out of any outer loop,
-    // and unswitch the runtime checks if possible. Once hoisted, we may have
-    // dead (or speculatable) control flows or more combining opportunities.
-    OptimizePM.addPass(EarlyCSEPass());
-    OptimizePM.addPass(CorrelatedValuePropagationPass());
-    OptimizePM.addPass(InstCombinePass());
-    LoopPassManager LPM(DebugLogging);
-    LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
-    LPM.addPass(
-        SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3));
-    OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-    OptimizePM.addPass(createFunctionToLoopPassAdaptor(
-        std::move(LPM), EnableMSSALoopDependency, /*UseBlockFrequencyInfo=*/true,
-        DebugLogging));
-    OptimizePM.addPass(SimplifyCFGPass());
-    OptimizePM.addPass(InstCombinePass());
-  }
+  addVectorPasses(Level, OptimizePM);
 
   // Now that we've formed fast to execute loop structures, we do further
   // optimizations. These are run afterward as they might block doing complex
@@ -1816,16 +1819,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       DebugLogging));
 
   MainFPM.addPass(LoopDistributePass());
-  MainFPM.addPass(LoopVectorizePass(
-      LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
-  // The vectorizer may have significantly shortened a loop body; unroll again.
-  MainFPM.addPass(LoopUnrollPass(LoopUnrollOptions(
-      Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
-      PTO.ForgetAllSCEVInLoopUnroll)));
 
-  MainFPM.addPass(WarnMissedTransformationsPass());
+  addVectorPasses(Level, MainFPM);
 
-  MainFPM.addPass(InstCombinePass());
   MainFPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
   MainFPM.addPass(SCCPPass());
   MainFPM.addPass(InstCombinePass());
@@ -1849,6 +1845,16 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // (in case we still have this pass, given its questionable usefulness).
 
   MainFPM.addPass(InstCombinePass());
+
+  // The vectorizer may have significantly shortened a loop body; unroll again.
+  MainFPM.addPass(LoopUnrollPass(LoopUnrollOptions(
+      Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
+      PTO.ForgetAllSCEVInLoopUnroll)));
+
+  MainFPM.addPass(WarnMissedTransformationsPass());
+
+  MainFPM.addPass(InstCombinePass());
+
   invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
