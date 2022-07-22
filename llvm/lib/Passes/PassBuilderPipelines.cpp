@@ -446,6 +446,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
       !Level.isOptimizingForSize())
     FPM.addPass(PGOMemOPSizeOpt());
 
+  FPM.addPass(TailCallElimPass());
   FPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
 
