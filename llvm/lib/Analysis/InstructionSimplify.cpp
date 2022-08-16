@@ -2043,21 +2043,18 @@ static Value *simplifyAndInst(Value *Op0, Value *Op1, const SimplifyQuery &Q,
   if (Value *V = simplifyLogicOfAddSub(Op0, Op1, Instruction::And))
     return V;
 
-  // A mask that only clears known zeros of a shifted value is a no-op.
+  // If all of the demanded bits are known 1 on one side, return the other.
+  // These bits cannot contribute to the result of the 'and' in this
+  // context.
+  // TODO: Generalize this for Op1 KnownBits?
   const APInt *Mask;
   const APInt *ShAmt;
   if (match(Op1, m_APInt(Mask))) {
-    // If all bits in the inverted and shifted mask are clear:
-    // and (shl X, ShAmt), Mask --> shl X, ShAmt
-    if (match(Op0, m_Shl(m_Value(X), m_APInt(ShAmt))) &&
-        (~(*Mask)).lshr(*ShAmt).isZero())
+    KnownBits Known0 = computeKnownBits(Op0, Q.DL, 0, Q.AC, Q.CxtI, Q.DT);
+    if ((Known0.Zero | *Mask).isAllOnes())
       return Op0;
-
-    // If all bits in the inverted and shifted mask are clear:
-    // and (lshr X, ShAmt), Mask --> lshr X, ShAmt
-    if (match(Op0, m_LShr(m_Value(X), m_APInt(ShAmt))) &&
-        (~(*Mask)).shl(*ShAmt).isZero())
-      return Op0;
+    if ((Known0.One | ~*Mask).isAllOnes())
+      return Op1;
   }
 
   // If we have a multiplication overflow check that is being 'and'ed with a

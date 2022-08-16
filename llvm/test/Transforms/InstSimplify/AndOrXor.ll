@@ -1106,8 +1106,7 @@ define i8 @noop_and_t0(i8 %x) {
 ; CHECK-LABEL: @noop_and_t0(
 ; CHECK-NEXT:    [[A:%.*]] = shl i8 [[X:%.*]], 3
 ; CHECK-NEXT:    [[B:%.*]] = lshr i8 [[A]], 2
-; CHECK-NEXT:    [[R:%.*]] = and i8 [[B]], 62
-; CHECK-NEXT:    ret i8 [[R]]
+; CHECK-NEXT:    ret i8 [[B]]
 ;
   %a = shl i8 %x, 3
   %b = lshr i8 %a, 2
@@ -1118,8 +1117,7 @@ define i8 @noop_and_t1(i8 %x) {
 ; CHECK-LABEL: @noop_and_t1(
 ; CHECK-NEXT:    [[A:%.*]] = shl i8 [[X:%.*]], 3
 ; CHECK-NEXT:    [[B:%.*]] = lshr i8 [[A]], 2
-; CHECK-NEXT:    [[R:%.*]] = and i8 [[B]], 126
-; CHECK-NEXT:    ret i8 [[R]]
+; CHECK-NEXT:    ret i8 [[B]]
 ;
   %a = shl i8 %x, 3
   %b = lshr i8 %a, 2
@@ -1130,10 +1128,7 @@ define i8 @noop_and_t1(i8 %x) {
 ; hidden simplifydemandedbits constant.
 define i8 @noop_and_t2(i8 %x) {
 ; CHECK-LABEL: @noop_and_t2(
-; CHECK-NEXT:    [[A:%.*]] = and i8 [[X:%.*]], 2
-; CHECK-NEXT:    [[B:%.*]] = or i8 [[A]], 127
-; CHECK-NEXT:    [[C:%.*]] = and i8 [[B]], 62
-; CHECK-NEXT:    ret i8 [[C]]
+; CHECK-NEXT:    ret i8 62
 ;
   %a = and i8 %x, 2
   %b = or i8 %a, 127
