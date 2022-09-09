@@ -1077,14 +1077,14 @@ Value *InstCombinerImpl::SimplifyMultipleUseDemandedBits(
     computeKnownBits(I->getOperand(0), LHSKnown, Depth + 1, CxtI);
     if (DemandedFromOps.isSubsetOf(LHSKnown.Zero))
       return I->getOperand(1);
-//
-//    // Compute the Known bits to simplify things downstream.
-//    computeKnownBits(I, Known, Depth, CxtI);
-//
-//    // If this user is only demanding bits that we know, return the known
-//    // constant.
-//    if (DemandedMask.isSubsetOf(Known.Zero|Known.One))
-//      return Constant::getIntegerValue(ITy, Known.One);
+
+    // Compute the Known bits to simplify things downstream.
+    computeKnownBits(I, Known, Depth, CxtI);
+
+    // If this user is only demanding bits that we know, return the known
+    // constant.
+    if (DemandedMask.isSubsetOf(Known.Zero|Known.One))
+      return Constant::getIntegerValue(ITy, Known.One);
 
     break;
   }
