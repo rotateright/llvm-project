@@ -1064,22 +1064,9 @@ Value *InstCombinerImpl::SimplifyMultipleUseDemandedBits(
 
     break;
   }
-  case Instruction::Add: {
-    unsigned NLZ = DemandedMask.countLeadingZeros();
-    APInt DemandedFromOps = APInt::getLowBitsSet(BitWidth, BitWidth - NLZ);
+  case Instruction::Add:
+    return nullptr;
 
-    // If an operand adds zeros to every bit below the highest demanded bit,
-    // that operand doesn't change the result. Return the other side.
-    computeKnownBits(I->getOperand(1), RHSKnown, Depth + 1, CxtI);
-    if (DemandedFromOps.isSubsetOf(RHSKnown.Zero))
-      return I->getOperand(0);
-
-    computeKnownBits(I->getOperand(0), LHSKnown, Depth + 1, CxtI);
-    if (DemandedFromOps.isSubsetOf(LHSKnown.Zero))
-      return I->getOperand(1);
-
-    break;
-  }
   case Instruction::AShr: {
     // Compute the Known bits to simplify things downstream.
     computeKnownBits(I, Known, Depth, CxtI);
