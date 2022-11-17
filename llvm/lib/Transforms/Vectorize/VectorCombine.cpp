@@ -1695,7 +1695,7 @@ bool VectorCombine::foldSelectShuffle(Instruction &I, bool FromReduction) {
 /// This is the entry point for all transforms. Pass manager differences are
 /// handled in the callers of this function.
 bool VectorCombine::run() {
-  if (DisableVectorCombine)
+  if (DisableVectorCombine || EarlyCombines)
     return false;
 
   // Don't attempt vectorization if the target does not support vectors.
