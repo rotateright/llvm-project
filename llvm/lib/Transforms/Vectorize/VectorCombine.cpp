@@ -1695,7 +1695,7 @@ bool VectorCombine::foldSelectShuffle(Instruction &I, bool FromReduction) {
 /// This is the entry point for all transforms. Pass manager differences are
 /// handled in the callers of this function.
 bool VectorCombine::run() {
-  if (DisableVectorCombine || EarlyCombines)
+  if (DisableVectorCombine)
     return false;
 
   // Don't attempt vectorization if the target does not support vectors.
@@ -1706,6 +1706,8 @@ bool VectorCombine::run() {
   auto FoldInst = [this, &MadeChange](Instruction &I) {
     Builder.SetInsertPoint(&I);
     if (!EarlyCombines) {
+      MadeChange |= vectorizeLoadInsert(I);
+      MadeChange |= widenSubvectorLoad(I);
       MadeChange |= foldExtractExtract(I);
       MadeChange |= foldInsExtFNeg(I);
       MadeChange |= foldBitcastShuf(I);
@@ -1714,8 +1716,6 @@ bool VectorCombine::run() {
       MadeChange |= foldShuffleFromReductions(I);
       MadeChange |= foldSelectShuffle(I);
     }
-    MadeChange |= vectorizeLoadInsert(I);
-    MadeChange |= widenSubvectorLoad(I);
     MadeChange |= scalarizeBinopOrCmp(I);
     MadeChange |= scalarizeLoadExtract(I);
     MadeChange |= foldSingleElementStore(I);
