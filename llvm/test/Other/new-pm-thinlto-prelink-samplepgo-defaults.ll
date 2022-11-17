@@ -122,18 +122,22 @@
 ; CHECK-O-NEXT: Running pass: IndVarSimplifyPass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: SROAPass on foo
+; CHECK-Os-NEXT: Running pass: VectorCombinePass
 ; CHECK-Os-NEXT: Running pass: MergedLoadStoreMotionPass
 ; CHECK-Os-NEXT: Running pass: GVNPass
 ; CHECK-Os-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-Os-NEXT: Running analysis: PhiValuesAnalysis
+; CHECK-Oz-NEXT: Running pass: VectorCombinePass
 ; CHECK-Oz-NEXT: Running pass: MergedLoadStoreMotionPass
 ; CHECK-Oz-NEXT: Running pass: GVNPass
 ; CHECK-Oz-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-Oz-NEXT: Running analysis: PhiValuesAnalysis
+; CHECK-O2-NEXT: Running pass: VectorCombinePass
 ; CHECK-O2-NEXT: Running pass: MergedLoadStoreMotionPass
 ; CHECK-O2-NEXT: Running pass: GVNPass
 ; CHECK-O2-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
+; CHECK-O3-NEXT: Running pass: VectorCombinePass
 ; CHECK-O3-NEXT: Running pass: MergedLoadStoreMotionPass
 ; CHECK-O3-NEXT: Running pass: GVNPass
 ; CHECK-O3-NEXT: Running analysis: MemoryDependenceAnalysis
