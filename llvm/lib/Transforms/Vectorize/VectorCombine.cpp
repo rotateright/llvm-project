@@ -152,9 +152,9 @@ static bool canWidenLoad(LoadInst *Load, const TargetTransformInfo &TTI) {
 bool VectorCombine::vectorizeLoadInsert(Instruction &I) {
   // Match insert into fixed vector of scalar value.
   // TODO: Handle non-zero insert index.
-  auto *Ty = dyn_cast<FixedVectorType>(I.getType());
+  auto *Ty = cast<FixedVectorType>(I.getType());
   Value *Scalar;
-  if (!Ty || !match(&I, m_InsertElt(m_Undef(), m_Value(Scalar), m_ZeroInt())) ||
+  if (!match(&I, m_InsertElt(m_Undef(), m_Value(Scalar), m_ZeroInt())) ||
       !Scalar->hasOneUse())
     return false;
 
@@ -271,9 +271,9 @@ bool VectorCombine::vectorizeLoadInsert(Instruction &I) {
 /// This removes a shuffle in IR and may allow combining of other loaded values.
 bool VectorCombine::widenSubvectorLoad(Instruction &I) {
   // Match subvector insert of fixed vector.
-  auto *Ty = dyn_cast<FixedVectorType>(I.getType());
+  auto *Ty = cast<FixedVectorType>(I.getType());
   auto *Shuf = dyn_cast<ShuffleVectorInst>(&I);
-  if (!Ty || !Shuf || !Shuf->isIdentityWithPadding())
+  if (!Shuf || !Shuf->isIdentityWithPadding())
     return false;
 
   // Allow a non-canonical shuffle mask that is choosing elements from op1.
@@ -728,10 +728,6 @@ bool VectorCombine::foldBitcastShuf(Instruction &I) {
 /// Match a vector binop or compare instruction with at least one inserted
 /// scalar operand and convert to scalar binop/cmp followed by insertelement.
 bool VectorCombine::scalarizeBinopOrCmp(Instruction &I) {
-  // Don't waste time matching scalar instructions.
-  if (!isa<FixedVectorType>(I.getType()))
-    return false;
-
   CmpInst::Predicate Pred = CmpInst::BAD_ICMP_PREDICATE;
   Value *Ins0, *Ins1;
   if (!match(&I, m_BinOp(m_Value(Ins0), m_Value(Ins1))) &&
@@ -1130,10 +1126,7 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
   if (LI->isVolatile() || !DL.typeSizeEqualsStoreSize(LI->getType()))
     return false;
 
-  auto *FixedVT = dyn_cast<FixedVectorType>(LI->getType());
-  if (!FixedVT)
-    return false;
-
+  auto *FixedVT = cast<FixedVectorType>(LI->getType());
   InstructionCost OriginalCost =
       TTI.getMemoryOpCost(Instruction::Load, LI->getType(), LI->getAlign(),
                           LI->getPointerAddressSpace());
@@ -1718,10 +1711,12 @@ bool VectorCombine::run() {
       MadeChange |= foldShuffleFromReductions(I);
       MadeChange |= foldSelectShuffle(I);
     }
-    MadeChange |= vectorizeLoadInsert(I);
-    MadeChange |= widenSubvectorLoad(I);
-    MadeChange |= scalarizeBinopOrCmp(I);
-    MadeChange |= scalarizeLoadExtract(I);
+    if (isa<FixedVectorType>(I.getType())) {
+      MadeChange |= vectorizeLoadInsert(I);
+      MadeChange |= widenSubvectorLoad(I);
+      MadeChange |= scalarizeBinopOrCmp(I);
+      MadeChange |= scalarizeLoadExtract(I);
+    }
     MadeChange |= foldSingleElementStore(I);
   };
   for (BasicBlock &BB : F) {
