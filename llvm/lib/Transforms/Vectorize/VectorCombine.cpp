@@ -729,7 +729,7 @@ bool VectorCombine::foldBitcastShuf(Instruction &I) {
 /// scalar operand and convert to scalar binop/cmp followed by insertelement.
 bool VectorCombine::scalarizeBinopOrCmp(Instruction &I) {
   // Don't waste time matching scalar instructions.
-  if (!I.getType()->isVectorTy())
+  if (!isa<FixedVectorType>(I.getType()))
     return false;
 
   CmpInst::Predicate Pred = CmpInst::BAD_ICMP_PREDICATE;
@@ -1710,8 +1710,6 @@ bool VectorCombine::run() {
   auto FoldInst = [this, &MadeChange](Instruction &I) {
     Builder.SetInsertPoint(&I);
     if (!EarlyCombines) {
-      MadeChange |= vectorizeLoadInsert(I);
-      MadeChange |= widenSubvectorLoad(I);
       MadeChange |= foldExtractExtract(I);
       MadeChange |= foldInsExtFNeg(I);
       MadeChange |= foldBitcastShuf(I);
@@ -1720,6 +1718,8 @@ bool VectorCombine::run() {
       MadeChange |= foldShuffleFromReductions(I);
       MadeChange |= foldSelectShuffle(I);
     }
+    MadeChange |= vectorizeLoadInsert(I);
+    MadeChange |= widenSubvectorLoad(I);
     MadeChange |= scalarizeBinopOrCmp(I);
     MadeChange |= scalarizeLoadExtract(I);
     MadeChange |= foldSingleElementStore(I);
