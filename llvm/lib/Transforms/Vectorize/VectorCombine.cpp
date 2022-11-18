@@ -685,9 +685,9 @@ bool VectorCombine::foldBitcastShuf(Instruction &I) {
   // mask for scalable type is a splat or not.
   // 2) Disallow non-vector casts and length-changing shuffles.
   // TODO: We could allow any shuffle.
-  auto *DestTy = dyn_cast<FixedVectorType>(I.getType());
+  auto *DestTy = cast<FixedVectorType>(I.getType());
   auto *SrcTy = dyn_cast<FixedVectorType>(V->getType());
-  if (!SrcTy || !DestTy || I.getOperand(0)->getType() != SrcTy)
+  if (!SrcTy || I.getOperand(0)->getType() != SrcTy)
     return false;
 
   unsigned DestNumElts = DestTy->getNumElements();
@@ -1203,10 +1203,7 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
 /// Try to convert "shuffle (binop), (binop)" with a shared binop operand into
 /// "binop (shuffle), (shuffle)".
 bool VectorCombine::foldShuffleOfBinops(Instruction &I) {
-  auto *VecTy = dyn_cast<FixedVectorType>(I.getType());
-  if (!VecTy)
-    return false;
-
+  auto *VecTy = cast<FixedVectorType>(I.getType());
   BinaryOperator *B0, *B1;
   ArrayRef<int> Mask;
   if (!match(&I, m_Shuffle(m_OneUse(m_BinOp(B0)), m_OneUse(m_BinOp(B1)),
@@ -1378,8 +1375,8 @@ bool VectorCombine::foldShuffleFromReductions(Instruction &I) {
 /// number of operations if the target reports them as cheaper.
 bool VectorCombine::foldSelectShuffle(Instruction &I, bool FromReduction) {
   auto *SVI = dyn_cast<ShuffleVectorInst>(&I);
-  auto *VT = dyn_cast<FixedVectorType>(I.getType());
-  if (!SVI || !VT)
+  auto *VT = cast<FixedVectorType>(I.getType());
+  if (!SVI)
     return false;
   auto *Op0 = dyn_cast<Instruction>(SVI->getOperand(0));
   auto *Op1 = dyn_cast<Instruction>(SVI->getOperand(1));
@@ -1703,13 +1700,16 @@ bool VectorCombine::run() {
   auto FoldInst = [this, &MadeChange](Instruction &I) {
     Builder.SetInsertPoint(&I);
     if (!EarlyCombines) {
-      MadeChange |= foldExtractExtract(I);
-      MadeChange |= foldInsExtFNeg(I);
-      MadeChange |= foldBitcastShuf(I);
-      MadeChange |= foldExtractedCmps(I);
-      MadeChange |= foldShuffleOfBinops(I);
-      MadeChange |= foldShuffleFromReductions(I);
-      MadeChange |= foldSelectShuffle(I);
+      if (isa<FixedVectorType>(I.getType())) {
+        MadeChange |= foldBitcastShuf(I);
+        MadeChange |= foldShuffleOfBinops(I);
+        MadeChange |= foldSelectShuffle(I);
+        MadeChange |= foldInsExtFNeg(I);
+      } else {
+        MadeChange |= foldExtractExtract(I);
+        MadeChange |= foldExtractedCmps(I);
+        MadeChange |= foldShuffleFromReductions(I);
+      }
     }
     if (isa<FixedVectorType>(I.getType())) {
       MadeChange |= vectorizeLoadInsert(I);
