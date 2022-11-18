@@ -728,6 +728,10 @@ bool VectorCombine::foldBitcastShuf(Instruction &I) {
 /// Match a vector binop or compare instruction with at least one inserted
 /// scalar operand and convert to scalar binop/cmp followed by insertelement.
 bool VectorCombine::scalarizeBinopOrCmp(Instruction &I) {
+  // Don't waste time matching scalar instructions.
+  if (!I.getType()->isVectorTy())
+    return false;
+
   CmpInst::Predicate Pred = CmpInst::BAD_ICMP_PREDICATE;
   Value *Ins0, *Ins1;
   if (!match(&I, m_BinOp(m_Value(Ins0), m_Value(Ins1))) &&
