@@ -1698,8 +1698,24 @@ bool VectorCombine::run() {
   bool MadeChange = false;
   auto FoldInst = [this, &MadeChange](Instruction &I) {
     Builder.SetInsertPoint(&I);
+    Type *Ty = I.getType();
+    // These folds should be beneficial independent of when this pass is run
+    // in the optimization pipeline.
+    // The type checking is for run-time efficiency. We can avoid wasting time
+    // dispatching to the folding functions if there's no chance of matching.
+    if (isa<FixedVectorType>(Ty)) {
+      MadeChange |= vectorizeLoadInsert(I);
+      MadeChange |= widenSubvectorLoad(I);
+      MadeChange |= scalarizeBinopOrCmp(I);
+      MadeChange |= scalarizeLoadExtract(I);
+    }
+    MadeChange |= foldSingleElementStore(I);
+
+    // If this is an early pipeline invocation of this pass, we are done.
+    // Otherwise, try folds that improve codegen but may interfere with
+    // IR canonicalizations.
     if (!TryEarlyFoldsOnly) {
-      if (isa<FixedVectorType>(I.getType())) {
+      if (isa<FixedVectorType>(Ty)) {
         MadeChange |= foldInsExtFNeg(I);
         MadeChange |= foldBitcastShuf(I);
         MadeChange |= foldShuffleOfBinops(I);
@@ -1710,13 +1726,6 @@ bool VectorCombine::run() {
         MadeChange |= foldShuffleFromReductions(I);
       }
     }
-    if (isa<FixedVectorType>(I.getType())) {
-      MadeChange |= vectorizeLoadInsert(I);
-      MadeChange |= widenSubvectorLoad(I);
-      MadeChange |= scalarizeBinopOrCmp(I);
-      MadeChange |= scalarizeLoadExtract(I);
-    }
-    MadeChange |= foldSingleElementStore(I);
   };
   for (BasicBlock &BB : F) {
     // Ignore unreachable basic blocks.
