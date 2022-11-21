@@ -1699,27 +1699,49 @@ bool VectorCombine::run() {
   auto FoldInst = [this, &MadeChange](Instruction &I) {
     Builder.SetInsertPoint(&I);
     Type *Ty = I.getType();
+    auto Opcode = I.getOpcode();
     // These folds should be beneficial independent of when this pass is run
     // in the optimization pipeline.
     // The type checking is for run-time efficiency. We can avoid wasting time
     // dispatching to the folding functions if there's no chance of matching.
     if (isa<FixedVectorType>(Ty)) {
-      MadeChange |= vectorizeLoadInsert(I);
-      MadeChange |= widenSubvectorLoad(I);
-      MadeChange |= scalarizeBinopOrCmp(I);
-      MadeChange |= scalarizeLoadExtract(I);
+      switch (Opcode) {
+      case Instruction::InsertElement:
+        MadeChange |= vectorizeLoadInsert(I);
+        break;
+      case Instruction::ShuffleVector:
+        MadeChange |= widenSubvectorLoad(I);
+        break;
+      case Instruction::Load:
+        MadeChange |= scalarizeLoadExtract(I);
+        break;
+      default:
+        MadeChange |= scalarizeBinopOrCmp(I);
+        break;
+      }
     }
-    MadeChange |= foldSingleElementStore(I);
+    if (Opcode == Instruction::Store)
+      MadeChange |= foldSingleElementStore(I);
 
     // If this is an early pipeline invocation of this pass, we are done.
     // Otherwise, try folds that improve codegen but may interfere with
     // IR canonicalizations.
     if (!TryEarlyFoldsOnly) {
       if (isa<FixedVectorType>(Ty)) {
-        MadeChange |= foldInsExtFNeg(I);
-        MadeChange |= foldBitcastShuf(I);
-        MadeChange |= foldShuffleOfBinops(I);
-        MadeChange |= foldSelectShuffle(I);
+        switch (Opcode) {
+        case Instruction::InsertElement:
+          MadeChange |= foldInsExtFNeg(I);
+          break;
+        case Instruction::BitCast:
+          MadeChange |= foldBitcastShuf(I);
+          break;
+        case Instruction::ShuffleVector:
+          MadeChange |= foldShuffleOfBinops(I);
+          MadeChange |= foldSelectShuffle(I);
+          break;
+        default:
+          break;
+        }
       } else {
         MadeChange |= foldExtractExtract(I);
         MadeChange |= foldExtractedCmps(I);
