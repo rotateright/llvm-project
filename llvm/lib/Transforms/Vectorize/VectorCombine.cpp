@@ -1685,8 +1685,7 @@ bool VectorCombine::foldSelectShuffle(Instruction &I, bool FromReduction) {
 /// This is the entry point for all transforms. Pass manager differences are
 /// handled in the callers of this function.
 bool VectorCombine::run() {
-  if (DisableVectorCombine)
-    return false;
+  return false;
 
   // Don't attempt vectorization if the target does not support vectors.
   if (!TTI.getNumberOfRegisters(TTI.getRegisterClassForType(/*Vector*/ true)))
