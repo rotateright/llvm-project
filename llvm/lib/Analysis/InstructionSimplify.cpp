@@ -741,6 +741,35 @@ static Constant *computePointerDifference(const DataLayout &DL, Value *LHS,
   return Res;
 }
 
+/// Test if there is a dominating equivalence condition for the
+/// two operands. If there is, try to reduce the binary operation
+/// between the two operands.
+/// Example: Op0 - Op1 --> 0 when Op0 == Op1
+static Value *simplifyByDomEq(unsigned Opcode, Value *Op0, Value *Op1,
+                              const SimplifyQuery &Q) {
+  Optional<bool> Imp =
+      isImpliedByDomCondition(CmpInst::ICMP_EQ, Op0, Op1, Q.CxtI, Q.DL);
+  if (Imp && *Imp) {
+    Type *Ty = Op0->getType();
+    switch (Opcode) {
+    case Instruction::Sub:
+    case Instruction::Xor:
+    case Instruction::URem:
+    case Instruction::SRem:
+      return Constant::getNullValue(Ty);
+
+    case Instruction::SDiv:
+    case Instruction::UDiv:
+      return ConstantInt::get(Ty, 1);
+
+    // TODO: And/Or can return Op0/Op1 direct.
+    default:
+      break;
+    }
+  }
+  return nullptr;
+}
+
 /// Given operands for a Sub, see if we can fold the result.
 /// If not, this returns null.
 static Value *simplifySubInst(Value *Op0, Value *Op1, bool isNSW, bool isNUW,
@@ -871,6 +900,9 @@ static Value *simplifySubInst(Value *Op0, Value *Op1, bool isNSW, bool isNUW,
   // have been simplified to the common value of B and C already.  Analysing
   // "A-B" and "A-C" thus gains nothing, but costs compile time.  Similarly
   // for threading over phi nodes.
+
+  if (Value *V = simplifyByDomEq(Instruction::Sub, Op0, Op1, Q))
+    return V;
 
   return nullptr;
 }
@@ -1021,6 +1053,9 @@ static Value *simplifyDivRem(Instruction::BinaryOps Opcode, Value *Op0,
       return IsDiv ? X : Constant::getNullValue(Op0->getType());
     }
   }
+
+  if (Value *V = simplifyByDomEq(Opcode, Op0, Op1, Q))
+    return V;
 
   return nullptr;
 }
@@ -2524,6 +2559,9 @@ static Value *simplifyXorInst(Value *Op0, Value *Op1, const SimplifyQuery &Q,
   // have been simplified to the common value of B and C already.  Analysing
   // "A^B" and "A^C" thus gains nothing, but costs compile time.  Similarly
   // for threading over phi nodes.
+
+  if (Value *V = simplifyByDomEq(Instruction::Xor, Op0, Op1, Q))
+    return V;
 
   return nullptr;
 }
