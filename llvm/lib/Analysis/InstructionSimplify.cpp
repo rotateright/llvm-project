@@ -766,7 +766,11 @@ static Value *simplifyByDomEq(unsigned Opcode, Value *Op0, Value *Op1,
     case Instruction::UDiv:
       return ConstantInt::get(Ty, 1);
 
-    // TODO: And/Or can return Op0/Op1 direct.
+    case Instruction::And:
+    case Instruction::Or:
+      // Could be either one - choose Op1 since that's more likely a constant.
+      return Op1;
+
     default:
       break;
     }
@@ -2231,6 +2235,9 @@ static Value *simplifyAndInst(Value *Op0, Value *Op1, const SimplifyQuery &Q,
     }
   }
 
+  if (Value *V = simplifyByDomEq(Instruction::And, Op0, Op1, Q, MaxRecurse))
+    return V;
+
   return nullptr;
 }
 
@@ -2489,6 +2496,9 @@ static Value *simplifyOrInst(Value *Op0, Value *Op1, const SimplifyQuery &Q,
         return ConstantInt::getTrue(Op1->getType());
     }
   }
+
+  if (Value *V = simplifyByDomEq(Instruction::Or, Op0, Op1, Q, MaxRecurse))
+    return V;
 
   return nullptr;
 }
