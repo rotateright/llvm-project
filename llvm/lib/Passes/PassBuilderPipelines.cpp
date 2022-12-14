@@ -1178,6 +1178,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   }
   // Enhance/cleanup vector code.
   FPM.addPass(VectorCombinePass());
+  FPM.addPass(GVNPass());
 
   if (!IsFullLTO) {
     FPM.addPass(InstCombinePass());
