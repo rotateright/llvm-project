@@ -138,7 +138,7 @@ static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 1000;
 
 static cl::opt<bool>
 EnableCodeSinking("instcombine-code-sinking", cl::desc("Enable code sinking"),
-                                              cl::init(true));
+                                              cl::init(false));
 
 static cl::opt<unsigned> MaxSinkNumUsers(
     "instcombine-max-sink-users", cl::init(32),
