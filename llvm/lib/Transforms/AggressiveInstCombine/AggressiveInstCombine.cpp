@@ -14,6 +14,7 @@
 
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "AggressiveInstCombineInternal.h"
+#include "ComplexLogicalOpsCombine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -854,6 +855,20 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       // needs to be called at the end of this sequence, otherwise we may make
       // bugs.
       MadeChange |= foldSqrt(I, TTI, TLI);
+    }
+
+    // TODO: enable it for all logical instructions.
+    // Simplify complex logic ops.
+    if (auto *BI = dyn_cast<BranchInst>(BB.getTerminator())) {
+      if (BI->isConditional()) {
+        LogicalOpsHelper Helper;
+        Value *Cond = BI->getCondition();
+        Value *NewCond = Helper.simplify(Cond);
+        if (NewCond) {
+          Cond->replaceAllUsesWith(NewCond);
+          MadeChange = true;
+        }
+      }
     }
   }
 
