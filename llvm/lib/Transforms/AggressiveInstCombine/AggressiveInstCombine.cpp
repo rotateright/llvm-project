@@ -18,6 +18,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/ComplexLogicCombine.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -45,6 +46,10 @@ STATISTIC(NumPopCountRecognized, "Number of popcount idioms recognized");
 static cl::opt<unsigned> MaxInstrsToScan(
     "aggressive-instcombine-max-scan-instrs", cl::init(64), cl::Hidden,
     cl::desc("Max number of instructions to scan for aggressive instcombine."));
+
+static cl::opt<bool> EnableClcForAll(
+    "enable-clc-for-all", cl::Hidden, cl::init(false),
+    cl::desc("Enable complex logical combine for every logical operation"));
 
 /// Match a pattern for a bitwise funnel/rotate operation that partially guards
 /// against undefined behavior by branching around the funnel-shift/rotation
@@ -838,6 +843,14 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
 
     const DataLayout &DL = F.getParent()->getDataLayout();
 
+    LogicalOpsHelper Helper;
+    auto ComplexLogicalSimplify = [](LogicalOpsHelper &Helper, Value *V) {
+      Value *NewV = Helper.simplify(V);
+      if (NewV)
+        V->replaceAllUsesWith(NewV);
+      return NewV != nullptr;
+    };
+
     // Walk the block backwards for efficiency. We're matching a chain of
     // use->defs, so we're more likely to succeed by starting from the bottom.
     // Also, we want to avoid matching partial patterns.
@@ -854,6 +867,20 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       // needs to be called at the end of this sequence, otherwise we may make
       // bugs.
       MadeChange |= foldSqrt(I, TTI, TLI);
+
+      if (EnableClcForAll) {
+        if (I.getOpcode() == Instruction::And ||
+            I.getOpcode() == Instruction::Or ||
+            I.getOpcode() == Instruction::Xor)
+          MadeChange |= ComplexLogicalSimplify(Helper, &I);
+      }
+    }
+
+    if (!EnableClcForAll) {
+      if (auto *BI = dyn_cast<BranchInst>(BB.getTerminator())) {
+        if (BI->isConditional())
+          MadeChange |= ComplexLogicalSimplify(Helper, BI->getCondition());
+      }
     }
   }
 
