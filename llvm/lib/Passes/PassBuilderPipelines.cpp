@@ -1113,7 +1113,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(LoopLoadEliminationPass());
   }
   // Cleanup after the loop optimization passes.
-  FPM.addPass(InstCombinePass());
+  FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
 
   if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
     ExtraVectorPassManager ExtraPasses;
@@ -1125,7 +1125,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // dead (or speculatable) control flows or more combining opportunities.
     ExtraPasses.addPass(EarlyCSEPass());
     ExtraPasses.addPass(CorrelatedValuePropagationPass());
-    ExtraPasses.addPass(InstCombinePass());
+    ExtraPasses.addPass(
+        InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
     LoopPassManager LPM;
     LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                          /*AllowSpeculation=*/true));
@@ -1138,7 +1139,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                                         /*UseBlockFrequencyInfo=*/true));
     ExtraPasses.addPass(
         SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-    ExtraPasses.addPass(InstCombinePass());
+    ExtraPasses.addPass(
+        InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
     FPM.addPass(std::move(ExtraPasses));
   }
 
@@ -1161,7 +1163,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
 
   if (IsFullLTO) {
     FPM.addPass(SCCPPass());
-    FPM.addPass(InstCombinePass());
+    FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
     FPM.addPass(BDCEPass());
   }
 
@@ -1176,7 +1178,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   FPM.addPass(VectorCombinePass());
 
   if (!IsFullLTO) {
-    FPM.addPass(InstCombinePass());
+    FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
     // Unroll small loops to hide loop backedge latency and saturate any
     // parallel execution resources of an out-of-order processor. We also then
     // need to clean up redundancies and loop invariant code.
@@ -1199,7 +1201,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // or SimplifyCFG passes scheduled after us, that would cleanup
     // the CFG mess this may created if allowed to modify CFG, so forbid that.
     FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
-    FPM.addPass(InstCombinePass());
+    FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
     FPM.addPass(
         RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
     FPM.addPass(createFunctionToLoopPassAdaptor(
@@ -1213,7 +1215,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   FPM.addPass(AlignmentFromAssumptionsPass());
 
   if (IsFullLTO)
-    FPM.addPass(InstCombinePass());
+    FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
 }
 
 ModulePassManager
