@@ -48,7 +48,7 @@ static cl::opt<unsigned> MaxInstrsToScan(
     cl::desc("Max number of instructions to scan for aggressive instcombine."));
 
 static cl::opt<bool> EnableClcForAll(
-    "enable-clc-for-all", cl::Hidden, cl::init(false),
+    "enable-clc-for-all", cl::Hidden, cl::init(true),
     cl::desc("Enable complex logical combine for every logical operation"));
 
 /// Match a pattern for a bitwise funnel/rotate operation that partially guards
