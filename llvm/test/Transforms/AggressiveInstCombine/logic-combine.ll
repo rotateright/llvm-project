@@ -226,8 +226,7 @@ define i8 @leaf8_negative_leafnum_const(i8 %a1, i8 %a2)  {
 ; CHECK-NEXT:    call void @use8(i8 [[AND6]])
 ; CHECK-NEXT:    [[AND7:%.*]] = and i8 [[A1]], 7
 ; CHECK-NEXT:    call void @use8(i8 [[AND7]])
-; CHECK-NEXT:    [[R:%.*]] = xor i8 [[A2:%.*]], [[A2]]
-; CHECK-NEXT:    ret i8 [[R]]
+; CHECK-NEXT:    ret i8 0
 ;
   %and1 = and i8 %a1, 1
   call void @use8(i8 %and1)
